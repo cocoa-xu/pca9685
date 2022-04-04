@@ -3,7 +3,7 @@ defmodule Cirlute.PCA9685.MixProject do
 
   def project do
     [
-      app: :pca9685,
+      app: :cirlute_pca9685,
       version: "0.1.0",
       elixir: "~> 1.11",
       start_permanent: Mix.env() == :prod,
@@ -12,9 +12,7 @@ defmodule Cirlute.PCA9685.MixProject do
   end
 
   def application do
-    [
-      extra_applications: [:logger]
-    ]
+    []
   end
 
   defp deps do
