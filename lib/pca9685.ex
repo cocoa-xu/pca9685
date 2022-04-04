@@ -3,10 +3,12 @@ defmodule Cirlute.PCA9685 do
   PWM board PCA9685
   """
 
+  use Bitwise
+
   alias Circuits.I2C
   alias Cirlute.PCA9685, as: T
 
-  use Bitwise
+  @behaviour Cirlute.PWM
 
   @doc """
   - address: I2C address.
@@ -74,11 +76,64 @@ defmodule Cirlute.PCA9685 do
   def new(address, i2c_bus, freq)
       when is_integer(address) and address > 0 and is_integer(i2c_bus) and i2c_bus > 0 and
              is_number(freq) and freq > 0 do
-    with {:ok, handle} <- I2C.open("i2c-" <> to_string(i2c_bus)) do
-      {:ok, %T{address: address, i2c_handle: handle, frequency: freq}}
+    with {:ok, handle} <- I2C.open("i2c-" <> to_string(i2c_bus)),
+         self <- %T{address: address, i2c_handle: handle, frequency: freq},
+         # initialise PCA9685
+         :ok <- write_all_value(self, 0, 0),
+         :ok <- write_byte_data(self, mode2(), <<outdrv()>>),
+         :ok <- write_byte_data(self, mode1(), <<allcall()>>),
+         _ <- :timer.sleep(5),
+         {:ok, new_mode1} = read_byte_data(self, mode1()),
+         :ok <- write_byte_data(self, mode1(), <<new_mode1 &&& ~~~sleep()>>),
+         _ <- :timer.sleep(5),
+         {:ok, self} <- set_frequency(self, 60) do
+      {:ok, self}
     else
       {:error, reason} -> {:error, reason}
     end
+  end
+
+  @doc """
+  Set PWM frequency
+
+  ## Parameters
+
+      - self: instance of PCA9685
+      - freq: requested frequency
+
+  ## Examples
+
+      iex> {:ok, pwm} = Cirlute.PCA9685.new()
+      iex> Cirlute.PCA9685.set_frequency(pwm, 60)
+      {:ok, %PCA9685{...}}
+
+  """
+  @spec set_frequency(%T{}, number()) :: {:ok, %T{}} | {:error, term()}
+  def set_frequency(self = %T{}, freq) when is_integer(freq) and freq > 0 do
+    # calculate prescale value
+    prescale = trunc(floor(25_000_000.0 / 4096.0 / freq - 1.0 + 0.5))
+    # get current parameter
+    with {:ok, old_mode} <- read_byte_data(self, mode1()),
+         # set flag
+         new_mode <- (old_mode &&& 0x7F) ||| 0x10,
+         # write back
+         :ok <- write_byte_data(self, mode1(), new_mode),
+         # set new prescale
+         :ok <- write_byte_data(self, prescale(), prescale),
+         # restore to old parameter
+         :ok <- write_byte_data(self, mode1(), old_mode),
+         # wait 5ms
+         _ <- :timer.sleep(5),
+         :ok <- write_byte_data(self, mode1(), old_mode ||| 0x80) do
+      {:ok, self}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @spec set_pwm(term(), non_neg_integer(), non_neg_integer()) :: :ok | {:error, term()}
+  def set_pwm(self = %T{}, channel, pwm_value) do
+    write(self, channel, 0, pwm_value)
   end
 
   @doc """
@@ -137,44 +192,6 @@ defmodule Cirlute.PCA9685 do
          :ok <- write_byte_data(self, all_led0_off_l(), <<off &&& 0xFF>>),
          :ok <- write_byte_data(self, all_led0_off_h(), <<off >>> 8>>) do
       :ok
-    else
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @doc """
-  Set PWM frequency
-
-  ## Parameters
-
-      - self: instance of PCA9685
-      - freq: requested frequency
-
-  ## Examples
-
-      iex> {:ok, pwm} = Cirlute.PCA9685.new()
-      iex> Cirlute.PCA9685.set_frequency(pwm, 60)
-      {:ok, %PCA9685{...}}
-
-  """
-  @spec set_frequency(%T{}, number()) :: {:ok, %T{}} | {:error, term()}
-  def set_frequency(self = %T{}, freq) when is_integer(freq) and freq > 0 do
-    # calculate prescale value
-    prescale = trunc(floor(25_000_000.0 / 4096.0 / freq - 1.0 + 0.5))
-    # get current parameter
-    with {:ok, old_mode} <- read_byte_data(self, mode1()),
-         # set flag
-         new_mode <- (old_mode &&& 0x7F) ||| 0x10,
-         # write back
-         :ok <- write_byte_data(self, mode1(), new_mode),
-         # set new prescale
-         :ok <- write_byte_data(self, prescale(), prescale),
-         # restore to old parameter
-         :ok <- write_byte_data(self, mode1(), old_mode),
-         # wait 5ms
-         _ <- :timer.sleep(5),
-         :ok <- write_byte_data(self, mode1(), old_mode ||| 0x80) do
-      {:ok, self}
     else
       {:error, reason} -> {:error, reason}
     end
