@@ -10,11 +10,6 @@ defmodule Cirlute.PCA9685 do
 
   @behaviour Cirlute.PWM
 
-  @doc """
-  - address: I2C address.
-  - i2c_handle: Circuits.I2C handle.
-  - frequency: PWM frequency.
-  """
   @enforce_keys [:address, :i2c_handle, :frequency]
   defstruct address: 0x40, i2c_handle: nil, frequency: 60
 
@@ -134,6 +129,16 @@ defmodule Cirlute.PCA9685 do
   @spec set_pwm(term(), non_neg_integer(), non_neg_integer()) :: :ok | {:error, term()}
   def set_pwm(self = %T{}, channel, pwm_value) do
     write(self, channel, 0, pwm_value)
+  end
+
+  @spec min_pwm() :: non_neg_integer()
+  def min_pwm do
+    0
+  end
+
+  @spec max_pwm() :: non_neg_integer()
+  def max_pwm do
+    4095
   end
 
   @doc """
