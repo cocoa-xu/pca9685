@@ -1,12 +1,12 @@
 defmodule Cirlute.PCA9685 do
   @moduledoc """
-  PWM board PCA9685
+  Elixir driver for PWM board PCA9685.
   """
 
   use Bitwise
 
   alias Circuits.I2C
-  alias Cirlute.PCA9685, as: T
+  alias __MODULE__, as: T
 
   @behaviour Cirlute.PWM
 
@@ -64,11 +64,11 @@ defmodule Cirlute.PCA9685 do
   def outdrv, do: 0x04
 
   @doc """
-  Initialise PCA9685 @i2c-1
+  Initialise PCA9685
 
   ## Examples
 
-      iex> Cirlute.PCA9685.new()
+      iex> Cirlute.PCA9685.new(0x40, 1, 60)
       {:ok, %PCA9685{...}}
 
   """
